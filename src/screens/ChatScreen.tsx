@@ -1,16 +1,23 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   FlatList,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  TouchableOpacity,
+  Animated,
+  Keyboard,
+  RefreshControl,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ChatMessage, ConnectionStatus } from '../types';
+import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { MessageBubble, TypingIndicator, SendButton, HalAvatar } from '../components';
 
 interface Props {
   messages: ChatMessage[];
@@ -19,6 +26,7 @@ interface Props {
   onSendMessage: (content: string) => Promise<void>;
   onAbort: () => Promise<void>;
   onDisconnect: () => void;
+  onReconnect?: () => void;
 }
 
 export function ChatScreen({
@@ -28,9 +36,13 @@ export function ChatScreen({
   onSendMessage,
   onAbort,
   onDisconnect,
+  onReconnect,
 }: Props) {
   const [input, setInput] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const inputRef = useRef<TextInput>(null);
+  const headerOpacity = useRef(new Animated.Value(1)).current;
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -41,165 +53,240 @@ export function ChatScreen({
     }
   }, [messages]);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!input.trim() || isGenerating) return;
     
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const message = input.trim();
     setInput('');
     await onSendMessage(message);
-  };
+  }, [input, isGenerating, onSendMessage]);
 
-  const renderMessage = ({ item }: { item: ChatMessage }) => {
-    const isUser = item.role === 'user';
-    const isSystem = item.role === 'system';
+  const handleAbort = useCallback(async () => {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    await onAbort();
+  }, [onAbort]);
 
-    return (
-      <View
-        style={[
-          styles.messageContainer,
-          isUser && styles.userMessageContainer,
-          isSystem && styles.systemMessageContainer,
-        ]}
-      >
-        <View
-          style={[
-            styles.messageBubble,
-            isUser && styles.userBubble,
-            isSystem && styles.systemBubble,
-            item.streaming && styles.streamingBubble,
-          ]}
-        >
-          <Text
-            style={[
-              styles.messageText,
-              isUser && styles.userText,
-              isSystem && styles.systemText,
-            ]}
-          >
-            {item.content}
-            {item.streaming && '▊'}
-          </Text>
-        </View>
-      </View>
-    );
-  };
+  const handleRefresh = useCallback(async () => {
+    if (!onReconnect) return;
+    
+    setRefreshing(true);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onReconnect();
+    setTimeout(() => setRefreshing(false), 1000);
+  }, [onReconnect]);
+
+  const handleDisconnect = useCallback(async () => {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    onDisconnect();
+  }, [onDisconnect]);
 
   const getStatusColor = () => {
     switch (status) {
       case 'connected':
-        return '#4caf50';
+        return colors.accent.success;
       case 'connecting':
-        return '#ff9800';
+        return colors.accent.warning;
       case 'error':
-        return '#f44336';
+        return colors.accent.error;
       default:
-        return '#9e9e9e';
+        return colors.text.tertiary;
     }
   };
 
+  const getStatusText = () => {
+    switch (status) {
+      case 'connected':
+        return 'Connected';
+      case 'connecting':
+        return 'Connecting...';
+      case 'error':
+        return 'Error';
+      default:
+        return 'Disconnected';
+    }
+  };
+
+  const renderMessage = useCallback(({ item, index }: { item: ChatMessage; index: number }) => {
+    const isLatest = index === messages.length - 1;
+    const showTimestamp = index === 0 || 
+      (messages[index - 1] && 
+       item.timestamp - messages[index - 1].timestamp > 60000);
+
+    return (
+      <MessageBubble
+        message={item}
+        isLatest={isLatest}
+        showTimestamp={showTimestamp}
+      />
+    );
+  }, [messages]);
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <HalAvatar size={80} isActive={status === 'connected'} />
+      <Text style={styles.emptyTitle}>Hello, Dave.</Text>
+      <Text style={styles.emptySubtitle}>
+        I'm completely operational, and all my circuits are functioning perfectly.
+      </Text>
+      <Text style={styles.emptyHint}>Send a message to begin</Text>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={[styles.statusDot, { backgroundColor: getStatusColor() }]} />
-          <Text style={styles.headerTitle}>iOSclaw</Text>
-        </View>
-        <TouchableOpacity onPress={onDisconnect} style={styles.disconnectButton}>
-          <Text style={styles.disconnectText}>Disconnect</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      {/* Gradient background */}
+      <LinearGradient
+        colors={[colors.background.primary, colors.hal.dark, colors.background.primary]}
+        locations={[0, 0.5, 1]}
+        style={StyleSheet.absoluteFill}
+      />
 
-      {/* Messages */}
-      <KeyboardAvoidingView
-        style={styles.chatContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          style={styles.messageList}
-          contentContainerStyle={styles.messageListContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No messages yet</Text>
-              <Text style={styles.emptyHint}>Send a message to start chatting</Text>
+      <SafeAreaView style={styles.safeArea}>
+        {/* Header */}
+        <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
+          <View style={styles.headerLeft}>
+            <HalAvatar size={32} isActive={status === 'connected'} isProcessing={isGenerating} />
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>iOSclaw</Text>
+              <View style={styles.statusContainer}>
+                <View style={[styles.statusDot, { backgroundColor: getStatusColor() }]} />
+                <Text style={[styles.statusText, { color: getStatusColor() }]}>
+                  {getStatusText()}
+                </Text>
+              </View>
             </View>
-          }
-        />
+          </View>
+          <TouchableOpacity 
+            onPress={handleDisconnect} 
+            style={styles.disconnectButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.disconnectText}>Disconnect</Text>
+          </TouchableOpacity>
+        </Animated.View>
 
-        {/* Input */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Type a message..."
-            placeholderTextColor="#666"
-            multiline
-            maxLength={4000}
-            editable={!isGenerating}
-            onSubmitEditing={handleSend}
-            returnKeyType="send"
+        {/* Chat area */}
+        <KeyboardAvoidingView
+          style={styles.chatContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.id}
+            style={styles.messageList}
+            contentContainerStyle={[
+              styles.messageListContent,
+              messages.length === 0 && styles.emptyListContent,
+            ]}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={renderEmptyState}
+            ListFooterComponent={
+              <TypingIndicator visible={isGenerating && !messages.some(m => m.streaming)} />
+            }
+            refreshControl={
+              onReconnect ? (
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={colors.hal.glow}
+                  colors={[colors.hal.glow]}
+                />
+              ) : undefined
+            }
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
           />
-          {isGenerating ? (
-            <TouchableOpacity style={styles.abortButton} onPress={onAbort}>
-              <Text style={styles.abortText}>■</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]}
-              onPress={handleSend}
-              disabled={!input.trim()}
-            >
-              <Text style={styles.sendText}>↑</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+          {/* Input area */}
+          <View style={styles.inputWrapper}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                ref={inputRef}
+                style={styles.input}
+                value={input}
+                onChangeText={setInput}
+                placeholder="Message..."
+                placeholderTextColor={colors.text.tertiary}
+                multiline
+                maxLength={4000}
+                editable={!isGenerating}
+                onSubmitEditing={handleSend}
+                returnKeyType="send"
+                blurOnSubmit={false}
+              />
+              <SendButton
+                onPress={handleSend}
+                onAbort={handleAbort}
+                disabled={!input.trim()}
+                isGenerating={isGenerating}
+              />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.background.primary,
+  },
+  safeArea: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border.subtle,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
+  headerTitleContainer: {
+    marginLeft: spacing.md,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
+    letterSpacing: typography.letterSpacing.tight,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: spacing.xs,
+  },
+  statusText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.medium,
   },
   disconnectButton: {
-    padding: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.elevated,
   },
   disconnectText: {
-    color: '#ff6b6b',
-    fontSize: 14,
+    color: colors.accent.error,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.medium,
   },
   chatContainer: {
     flex: 1,
@@ -208,110 +295,64 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messageListContent: {
-    padding: 16,
-    paddingBottom: 8,
+    paddingVertical: spacing.lg,
   },
-  messageContainer: {
-    marginBottom: 12,
-    flexDirection: 'row',
-  },
-  userMessageContainer: {
-    justifyContent: 'flex-end',
-  },
-  systemMessageContainer: {
-    justifyContent: 'center',
-  },
-  messageBubble: {
-    maxWidth: '80%',
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: '#2a2a2a',
-  },
-  userBubble: {
-    backgroundColor: '#e65100',
-    borderBottomRightRadius: 4,
-  },
-  systemBubble: {
-    backgroundColor: '#442222',
-  },
-  streamingBubble: {
-    borderColor: '#e65100',
-    borderWidth: 1,
-  },
-  messageText: {
-    fontSize: 16,
-    color: '#fff',
-    lineHeight: 22,
-  },
-  userText: {
-    color: '#fff',
-  },
-  systemText: {
-    color: '#ff8888',
-    fontStyle: 'italic',
+  emptyListContent: {
+    flex: 1,
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingHorizontal: spacing.xxxl,
+    paddingBottom: 100,
   },
-  emptyText: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 8,
+  emptyTitle: {
+    fontSize: typography.size.xxl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  emptySubtitle: {
+    fontSize: typography.size.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: typography.size.md * typography.lineHeight.relaxed,
+    marginBottom: spacing.xl,
   },
   emptyHint: {
-    fontSize: 14,
-    color: '#444',
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
+    fontStyle: 'italic',
+  },
+  inputWrapper: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border.subtle,
+    backgroundColor: colors.background.primary,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.background.tertiary,
+    borderRadius: borderRadius.xl,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
   },
   input: {
     flex: 1,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    paddingRight: 12,
-    fontSize: 16,
-    color: '#fff',
-    maxHeight: 100,
-    marginRight: 8,
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#e65100',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonDisabled: {
-    backgroundColor: '#444',
-  },
-  sendText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  abortButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f44336',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  abortText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: typography.size.md,
+    color: colors.text.primary,
+    maxHeight: 120,
+    paddingTop: Platform.OS === 'ios' ? spacing.sm : 0,
+    paddingBottom: Platform.OS === 'ios' ? spacing.sm : 0,
+    marginRight: spacing.sm,
+    lineHeight: typography.size.md * typography.lineHeight.normal,
   },
 });
