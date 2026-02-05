@@ -6,7 +6,7 @@ import { ConnectionStatus, ConnectionConfig } from '../types';
 const STORAGE_KEY = 'iosclaw_config';
 
 const DEFAULT_CONFIG: ConnectionConfig = {
-  gatewayUrl: 'wss://10.0.10.160:18789',
+  gatewayUrl: 'ws://10.0.10.22:18789',
   token: 'fc7215d9aaa1dbd1b1cacd1a28b09165b110878d1c2a8cfd',
 };
 

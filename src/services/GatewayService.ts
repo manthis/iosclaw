@@ -110,19 +110,19 @@ export class GatewayService {
         minProtocol: PROTOCOL_VERSION,
         maxProtocol: PROTOCOL_VERSION,
         client: {
-          id: 'iosclaw',
+          id: 'openclaw-ios',
           version: '1.0.0',
           platform: 'ios',
-          mode: 'operator',
+          mode: 'ui',
         },
         role: 'operator',
-        scopes: ['operator.read', 'operator.write'],
+        scopes: ['operator.admin'],
         caps: [],
         commands: [],
         permissions: {},
         auth: { token },
         locale: 'en-US',
-        userAgent: 'iosclaw/1.0.0',
+        userAgent: 'iOSclaw/1.0.0',
       },
     };
   }
