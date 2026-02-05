@@ -5,6 +5,8 @@ import { ConnectionStatus, ConnectionConfig } from '../types';
 
 const STORAGE_KEY = 'iosclaw_config';
 
+// Always use wss:// - TLS must always be enabled on gateway
+// hal9000.local is mDNS hostname - works on LAN without hardcoding IP
 const DEFAULT_CONFIG: ConnectionConfig = {
   gatewayUrl: 'wss://10.0.10.22:18789',
   token: 'fc7215d9aaa1dbd1b1cacd1a28b09165b110878d1c2a8cfd',
@@ -16,19 +18,30 @@ export function useGateway() {
   const [error, setError] = useState<string | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
 
-  // Load saved config on mount
+  // Load saved config on mount and auto-connect
   useEffect(() => {
     const loadConfig = async () => {
       try {
         const saved = await AsyncStorage.getItem(STORAGE_KEY);
+        let configToUse = DEFAULT_CONFIG;
         if (saved) {
           const parsed = JSON.parse(saved) as ConnectionConfig;
           setConfig(parsed);
+          configToUse = parsed;
+        }
+        setConfigLoaded(true);
+        
+        // Auto-connect with loaded or default config
+        console.log('[useGateway] Auto-connecting...');
+        try {
+          await gateway.connect(configToUse.gatewayUrl, configToUse.token);
+        } catch (e) {
+          console.log('[useGateway] Auto-connect failed:', e);
         }
       } catch (e) {
         console.error('[useGateway] Failed to load config:', e);
+        setConfigLoaded(true);
       }
-      setConfigLoaded(true);
     };
     loadConfig();
   }, []);

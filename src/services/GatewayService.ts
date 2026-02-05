@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { Platform } from 'react-native';
 import {
   ConnectChallenge,
   WsFrame,
@@ -7,6 +8,7 @@ import {
   WsEvent,
   ConnectionStatus,
 } from '../types';
+import { createSecureWebSocket, isSecureWebSocketAvailable } from '../native/SecureWebSocket';
 
 const PROTOCOL_VERSION = 3;
 
@@ -37,7 +39,15 @@ export class GatewayService {
         // React Native's WebSocket doesn't support custom headers,
         // so we pass the token as a query parameter
         const wsUrl = `${url}?token=${encodeURIComponent(token)}`;
-        this.ws = new WebSocket(wsUrl);
+        console.log('[Gateway] Connecting to:', wsUrl);
+        
+        // Use SecureWebSocket on iOS for self-signed cert support
+        if (Platform.OS === 'ios' && isSecureWebSocketAvailable()) {
+          console.log('[Gateway] Using SecureWebSocket for SSL trust');
+          this.ws = createSecureWebSocket(wsUrl) as any;
+        } else {
+          this.ws = new WebSocket(wsUrl);
+        }
 
         const timeout = setTimeout(() => {
           reject(new Error('Connection timeout'));
@@ -89,8 +99,8 @@ export class GatewayService {
           reject(new Error('WebSocket error'));
         };
 
-        this.ws.onclose = () => {
-          console.log('[Gateway] WebSocket closed');
+        this.ws.onclose = (event) => {
+          console.log('[Gateway] WebSocket closed, code:', event.code, 'reason:', event.reason);
           this.setStatus('disconnected');
           this.scheduleReconnect();
         };
