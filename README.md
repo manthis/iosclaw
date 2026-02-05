@@ -21,27 +21,11 @@
 
 ## 📸 Screenshots
 
-<table>
-  <tr>
-    <td align="center">
-      <img src="assets/screenshots/connection-screen.png" width="250" alt="Connection Screen"/><br/>
-      <strong>Connection</strong><br/>
-      <em>HAL 9000-inspired login</em>
-    </td>
-    <td align="center">
-      <img src="assets/screenshots/chat-empty.png" width="250" alt="Chat Empty"/><br/>
-      <strong>Hello, Dave</strong><br/>
-      <em>Empty chat greeting</em>
-    </td>
-    <td align="center">
-      <img src="assets/screenshots/chat-conversation.png" width="250" alt="Chat Conversation"/><br/>
-      <strong>Conversation</strong><br/>
-      <em>Streaming responses</em>
-    </td>
-  </tr>
-</table>
-
-> **Note:** Screenshots require running the app in iOS Simulator. See [`assets/screenshots/README.md`](assets/screenshots/README.md) for instructions.
+<p align="center">
+  <img src="assets/screenshots/connection-screen.png" width="280" alt="Connection Screen" />
+  &nbsp;&nbsp;
+  <img src="assets/screenshots/chat-screen.png" width="280" alt="Chat Screen" />
+</p>
 
 ## 🚀 Quick Start
 
