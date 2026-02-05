@@ -15,7 +15,7 @@ import { colors, typography, spacing } from './src/theme';
 import { Message } from './src/types';
 
 // Demo mode for screenshots - set to true for App Store screenshots
-const DEMO_MODE = false;
+const DEMO_MODE = true;
 
 const DEMO_MESSAGES: Message[] = [
   {
