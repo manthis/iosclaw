@@ -1,19 +1,48 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   StatusBar,
   View,
   StyleSheet,
   Animated,
-  Easing,
   Text,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ConnectionScreen } from './src/screens/ConnectionScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { useGateway } from './src/hooks/useGateway';
 import { useChat } from './src/hooks/useChat';
 import { HalAvatar } from './src/components';
 import { colors, typography, spacing } from './src/theme';
+import { Message } from './src/types';
+
+// Demo mode for screenshots - set to true for App Store screenshots
+const DEMO_MODE = true;
+
+const DEMO_MESSAGES: Message[] = [
+  {
+    id: '1',
+    role: 'user',
+    content: 'Hello HAL, what can you do?',
+    timestamp: Date.now() - 60000,
+  },
+  {
+    id: '2',
+    role: 'assistant',
+    content: "Good afternoon, Dave. I can help you with a wide variety of tasks:\n\n• **Calendar & Reminders** — Check events, set appointments\n• **Messages** — Send SMS, iMessage, WhatsApp, Telegram\n• **Files & Notes** — Read, write, organize your documents\n• **Web Search** — Find information online\n• **Smart Home** — Control lights, devices\n• **Code** — Write and review code\n\nI'm putting myself to the fullest possible use. How may I assist you today?",
+    timestamp: Date.now() - 30000,
+  },
+  {
+    id: '3',
+    role: 'user',
+    content: "What's on my calendar today?",
+    timestamp: Date.now() - 15000,
+  },
+  {
+    id: '4',
+    role: 'assistant',
+    content: "You have 2 events today:\n\n📅 **10:00 AM** — Team standup (30 min)\n📅 **2:00 PM** — Client call with Bary\n\nWould you like me to set a reminder before any of these?",
+    timestamp: Date.now(),
+  },
+];
 
 export default function App() {
   const {
@@ -34,37 +63,11 @@ export default function App() {
     clearMessages,
   } = useChat();
 
-  // Loading animation
-  const loadingOpacity = useRef(new Animated.Value(1)).current;
-  const loadingScale = useRef(new Animated.Value(1)).current;
-  const contentOpacity = useRef(new Animated.Value(0)).current;
+  // Demo mode state
+  const [demoMessages, setDemoMessages] = useState<Message[]>(DEMO_MESSAGES);
 
-  useEffect(() => {
-    if (configLoaded) {
-      // Fade out loading, fade in content
-      Animated.parallel([
-        Animated.timing(loadingOpacity, {
-          toValue: 0,
-          duration: 400,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(loadingScale, {
-          toValue: 1.1,
-          duration: 400,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(contentOpacity, {
-          toValue: 1,
-          duration: 500,
-          delay: 200,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [configLoaded]);
+  // Simplified - no animations that could break
+  const contentOpacity = useRef(new Animated.Value(1)).current;
 
   const handleDisconnect = () => {
     disconnect();
@@ -75,29 +78,42 @@ export default function App() {
     connect(config.gatewayUrl, config.token);
   };
 
+  const handleDemoSend = (text: string) => {
+    const newMsg: Message = {
+      id: String(Date.now()),
+      role: 'user',
+      content: text,
+      timestamp: Date.now(),
+    };
+    setDemoMessages([...demoMessages, newMsg]);
+  };
+
   // Show loading screen while config is loading
-  if (!configLoaded) {
+  if (!configLoaded && !DEMO_MODE) {
     return (
       <View style={styles.loadingContainer}>
         <StatusBar barStyle="light-content" backgroundColor={colors.background.primary} />
-        <LinearGradient
-          colors={[colors.background.primary, colors.hal.dark, colors.background.primary]}
-          locations={[0, 0.5, 1]}
-          style={StyleSheet.absoluteFill}
+        <HalAvatar size={80} isActive isProcessing />
+        <Text style={styles.loadingText}>iOSclaw</Text>
+        <Text style={styles.loadingSubtext}>Initializing...</Text>
+      </View>
+    );
+  }
+
+  // Demo mode - show chat directly
+  if (DEMO_MODE) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.background.primary} />
+        <ChatScreen
+          messages={demoMessages}
+          isGenerating={false}
+          status="connected"
+          onSendMessage={handleDemoSend}
+          onAbort={() => {}}
+          onDisconnect={() => {}}
+          onReconnect={() => {}}
         />
-        <Animated.View
-          style={[
-            styles.loadingContent,
-            {
-              opacity: loadingOpacity,
-              transform: [{ scale: loadingScale }],
-            },
-          ]}
-        >
-          <HalAvatar size={80} isActive isProcessing />
-          <Text style={styles.loadingText}>iOSclaw</Text>
-          <Text style={styles.loadingSubtext}>Initializing...</Text>
-        </Animated.View>
       </View>
     );
   }
@@ -142,9 +158,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  loadingContent: {
-    alignItems: 'center',
   },
   loadingText: {
     fontSize: typography.size.xxl,
