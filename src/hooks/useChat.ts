@@ -8,6 +8,8 @@ export function useChat() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const streamingMessageRef = useRef<{ id: string; content: string } | null>(null);
+  const generatingStartTime = useRef<number>(0);
+  const MIN_TYPING_INDICATOR_MS = 800; // Show typing indicator for at least 800ms
 
   // Set up stream listener FIRST - before anything else
   useEffect(() => {
@@ -26,7 +28,10 @@ export function useChat() {
           );
           streamingMessageRef.current = null;
         }
-        setIsGenerating(false);
+        // Ensure typing indicator shows for minimum time
+        const elapsed = Date.now() - generatingStartTime.current;
+        const remainingTime = Math.max(0, MIN_TYPING_INDICATOR_MS - elapsed);
+        setTimeout(() => setIsGenerating(false), remainingTime);
       } else if (chunk) {
         // Handle streaming chunk
         if (!streamingMessageRef.current) {
@@ -100,6 +105,7 @@ export function useChat() {
     setMessages((prev) => [...prev, userMessage]);
 
     try {
+      generatingStartTime.current = Date.now();
       setIsGenerating(true);
       await chat.sendMessage(content.trim());
     } catch (e) {

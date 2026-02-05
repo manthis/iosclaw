@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   StatusBar,
   View,
@@ -61,7 +61,16 @@ export default function App() {
     sendMessage,
     abort,
     clearMessages,
+    loadHistory,
   } = useChat();
+
+  // Load chat history when connected
+  useEffect(() => {
+    if (isConnected) {
+      console.log('[App] Connected - loading history...');
+      loadHistory();
+    }
+  }, [isConnected, loadHistory]);
 
   // Demo mode state
   const [demoMessages, setDemoMessages] = useState<Message[]>(DEMO_MESSAGES);
