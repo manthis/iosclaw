@@ -54,7 +54,7 @@ export class GatewayService {
             
             // Handle connect challenge
             if (frame.type === 'event' && frame.event === 'connect.challenge') {
-              const challenge = frame.payload as ConnectChallenge;
+              const challenge = frame.payload as unknown as ConnectChallenge;
               this.challengeNonce = challenge.nonce;
               console.log('[Gateway] Received challenge, sending connect...');
               
