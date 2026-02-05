@@ -208,15 +208,23 @@ export function ChatScreen({
                 ref={inputRef}
                 style={styles.input}
                 value={input}
-                onChangeText={setInput}
+                onChangeText={(text) => {
+                  // Detect Enter key press (newline at end) and send instead
+                  if (text.endsWith('\n') && input.trim() && !text.slice(0, -1).endsWith('\n')) {
+                    setInput(text.slice(0, -1)); // Remove the newline
+                    handleSend();
+                  } else {
+                    setInput(text);
+                  }
+                }}
                 placeholder="Message..."
                 placeholderTextColor={colors.text.tertiary}
                 multiline
                 maxLength={4000}
                 editable={!isGenerating}
-                onSubmitEditing={handleSend}
                 returnKeyType="send"
                 blurOnSubmit={false}
+                enablesReturnKeyAutomatically
               />
               <SendButton
                 onPress={handleSend}
