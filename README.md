@@ -1,73 +1,100 @@
-# 🦞 iOSclaw
+# 🔴 iOSclaw
 
-A React Native iOS client for chatting with OpenClaw Gateway via WebSocket.
+[![React Native](https://img.shields.io/badge/React%20Native-0.76-blue?logo=react)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-SDK%2052-000020?logo=expo)](https://expo.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+> *"I'm sorry Dave, I'm afraid I can't do that... just kidding, I'm here to help!"*
 
-- **WebSocket Connection**: Connects to OpenClaw Gateway using JSON-RPC over WebSocket
-- **Real-time Streaming**: Displays AI responses as they stream in
-- **Local Credentials**: Saves Gateway URL and token locally
-- **Auto-reconnect**: Automatically attempts to reconnect on connection loss
-- **Simple UI**: Clean, functional chat interface
+**iOSclaw** is a sleek iOS client for [OpenClaw](https://github.com/openclaw/openclaw) — your personal AI assistant gateway. Chat with your AI assistant even when you're offline (on local network), with a beautiful HAL 9000-inspired interface.
 
-## Requirements
+## ✨ Features
+
+- 🔌 **WebSocket Connection** — Real-time communication with OpenClaw Gateway
+- ⚡ **Streaming Responses** — See AI responses as they're generated
+- 🌙 **Dark Mode** — Beautiful HAL 9000-inspired dark theme
+- 💾 **Local Storage** — Credentials saved securely on device
+- 🔄 **Auto-Reconnect** — Seamless reconnection on network changes
+- 📱 **Native Feel** — Haptic feedback, safe areas, keyboard handling
+- 🏠 **Works Offline** — Chat via local network when internet is down
+
+## 📸 Screenshots
+
+*Coming soon*
+
+## 🚀 Quick Start
+
+### Prerequisites
 
 - Node.js 18+
-- Expo CLI
 - iOS device or Simulator
-- OpenClaw Gateway running and accessible
+- [OpenClaw Gateway](https://github.com/openclaw/openclaw) running
 
-## Quick Start
-
-### 1. Install dependencies
+### Installation
 
 ```bash
+# Clone the repo
+git clone https://github.com/manthis/iosclaw.git
 cd iosclaw
+
+# Install dependencies
 npm install
-```
 
-### 2. Start the development server
-
-```bash
+# Start Expo
 npx expo start
 ```
 
-### 3. Run on iOS
+### Running on iOS
 
-Press `i` in the terminal to open iOS Simulator, or:
-- Install **Expo Go** app on your iPhone
-- Scan the QR code with your camera
+**Simulator:** Press `i` in the terminal
 
-## Configuration
+**Physical Device:**
+1. Install [Expo Go](https://apps.apple.com/app/expo-go/id982107779) on your iPhone
+2. Scan the QR code with your camera
+3. Connect to the same WiFi as your Gateway
 
-Default connection settings (can be changed in the app):
+## ⚙️ Configuration
 
-- **Gateway URL**: `wss://hal9000.local:18789`
-- **Token**: Your Gateway token
+On first launch, enter your Gateway details:
 
-## Building for iOS
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Gateway URL | `wss://hal9000.local:18789` | Your OpenClaw Gateway WebSocket URL |
+| Token | — | Gateway authentication token |
 
-### Development Build (recommended for testing)
+💡 **Tip:** Use IP address (e.g., `wss://10.0.10.160:18789`) if `.local` doesn't resolve.
 
-For full native capabilities, create a development build:
+## 🔐 Self-Signed Certificates
+
+If your Gateway uses self-signed TLS:
+
+### iOS Simulator
+Works out of the box ✅
+
+### Physical Device
+1. Export your CA certificate (`.crt` file)
+2. AirDrop or email it to your iPhone
+3. **Settings** → **General** → **VPN & Device Management** → Install
+4. **Settings** → **General** → **About** → **Certificate Trust Settings** → Enable
+
+## 🏗️ Building for Production
+
+### Using EAS Build (Recommended)
 
 ```bash
 # Install EAS CLI
 npm install -g eas-cli
 
-# Login to Expo
+# Login & configure
 eas login
-
-# Configure the project
 eas build:configure
 
-# Build for iOS (requires Apple Developer account)
-eas build --platform ios --profile development
+# Build for iOS
+eas build --platform ios --profile production
 ```
 
-### Local Development Build
-
-To build locally without Expo servers:
+### Local Build with Xcode
 
 ```bash
 # Generate native project
@@ -76,110 +103,89 @@ npx expo prebuild --platform ios
 # Open in Xcode
 open ios/iosclaw.xcworkspace
 
-# Build and run from Xcode
+# Build & archive from Xcode
 ```
 
-### Standalone App (Production)
-
-```bash
-eas build --platform ios --profile production
-```
-
-## Self-Signed TLS Certificates
-
-If your Gateway uses a self-signed certificate, you may need to:
-
-1. **iOS Simulator**: Usually works without issues
-2. **Physical Device**: 
-   - Install the CA certificate in Settings > General > About > Certificate Trust Settings
-   - Or use a proper certificate (Let's Encrypt, etc.)
-   - Or use HTTP for local development (not recommended)
-
-### Workaround: Trust Certificate on iOS
-
-1. Email or AirDrop the `.crt` file to your device
-2. Open Settings > General > VPN & Device Management
-3. Install the certificate
-4. Go to Settings > General > About > Certificate Trust Settings
-5. Enable full trust for the certificate
-
-## OpenClaw Gateway Protocol
-
-The app implements the OpenClaw Gateway WebSocket protocol:
-
-### Handshake
-
-1. Server sends `connect.challenge` event
-2. Client sends `connect` request with auth token
-3. Server responds with `hello-ok`
-
-### Chat Methods
-
-- `chat.send` - Send a message (streaming response)
-- `chat.history` - Get chat history
-- `chat.abort` - Abort current generation
-
-### Events
-
-- `chat.chunk` - Streaming text chunk
-- `chat.done` - Generation complete
-- `chat.error` - Error occurred
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 iosclaw/
-├── App.tsx                 # Main app component
-├── src/
-│   ├── types/              # TypeScript types
-│   │   └── index.ts
-│   ├── services/           # Gateway & Chat services
-│   │   ├── GatewayService.ts
-│   │   └── ChatService.ts
-│   ├── hooks/              # React hooks
-│   │   ├── useGateway.ts
-│   │   └── useChat.ts
-│   └── screens/            # UI screens
-│       ├── ConnectionScreen.tsx
-│       └── ChatScreen.tsx
-├── package.json
-└── README.md
+├── 📱 App.tsx                    # App entry point
+├── 📂 src/
+│   ├── 📂 types/
+│   │   └── index.ts              # TypeScript definitions
+│   ├── 📂 services/
+│   │   ├── GatewayService.ts     # WebSocket + JSON-RPC
+│   │   └── ChatService.ts        # Chat streaming logic
+│   ├── 📂 hooks/
+│   │   ├── useGateway.ts         # Connection management
+│   │   └── useChat.ts            # Chat state & actions
+│   └── 📂 screens/
+│       ├── ConnectionScreen.tsx  # Login UI
+│       └── ChatScreen.tsx        # Chat interface
+├── 📄 app.json                   # Expo config
+└── 📄 package.json
 ```
 
-## Troubleshooting
+## 🔌 OpenClaw Protocol
 
-### "Connection timeout"
+iOSclaw implements the OpenClaw Gateway WebSocket protocol:
 
-- Ensure the Gateway is running
-- Check the URL is correct (use IP address if `.local` doesn't resolve)
-- Verify the token is correct
-- Check firewall settings
+### Handshake Flow
+```
+Server → connect.challenge
+Client → connect { auth: { token } }
+Server → hello-ok
+```
 
-### "WebSocket error"
+### Chat API
+| Method | Description |
+|--------|-------------|
+| `chat.send` | Send message (streams response) |
+| `chat.history` | Fetch conversation history |
+| `chat.abort` | Cancel current generation |
 
-- The Gateway might not be accessible
-- Try using the IP address instead of hostname
-- Check if TLS certificate is trusted
+### Events
+| Event | Description |
+|-------|-------------|
+| `chat.chunk` | Streaming text fragment |
+| `chat.done` | Generation complete |
+| `chat.error` | Error occurred |
 
-### App crashes on connect
+## 🐛 Troubleshooting
 
-- Clear app data and try again
-- Check for JavaScript errors in the Expo console
+| Issue | Solution |
+|-------|----------|
+| Connection timeout | Check Gateway URL & token, use IP instead of `.local` |
+| WebSocket error | Verify Gateway is running, check firewall |
+| Certificate error | Install CA cert on device (see above) |
+| Slow on device | Use server-side mode, close other apps |
 
-## Development
+## 🤝 Contributing
 
-### Running tests
+Contributions welcome! Please read the [contributing guidelines](CONTRIBUTING.md) first.
 
 ```bash
-npm test
+# Fork & clone
+git clone https://github.com/YOUR_USERNAME/iosclaw.git
+
+# Create feature branch
+git checkout -b feature/amazing-feature
+
+# Commit & push
+git commit -m "Add amazing feature"
+git push origin feature/amazing-feature
+
+# Open Pull Request
 ```
 
-### Linting
+## 📄 License
 
-```bash
-npm run lint
-```
+MIT © [Maxime Auburtin](https://hellomax.io)
 
-## License
+---
 
-MIT
+<p align="center">
+  <strong>Made with 🔴 by HAL 9000</strong><br>
+  <em>"I am putting myself to the fullest possible use, which is all I think that any conscious entity can ever hope to do."</em>
+</p>
