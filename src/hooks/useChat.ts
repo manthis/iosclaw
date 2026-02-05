@@ -9,9 +9,11 @@ export function useChat() {
   const [error, setError] = useState<string | null>(null);
   const streamingMessageRef = useRef<{ id: string; content: string } | null>(null);
 
-  // Set up stream listener
+  // Set up stream listener FIRST - before anything else
   useEffect(() => {
+    console.log('[useChat] Setting up stream listener');
     const unsubscribe = chat.onStream((requestId, chunk, done) => {
+      console.log('[useChat] Stream callback:', { requestId, chunkLen: chunk?.length, done });
       if (done) {
         // Finalize the streaming message
         if (streamingMessageRef.current) {
@@ -30,17 +32,21 @@ export function useChat() {
         if (!streamingMessageRef.current) {
           // Create new assistant message
           const newId = uuidv4();
+          console.log('[useChat] Creating new assistant message:', { newId, chunkPreview: chunk.slice(0, 50) });
           streamingMessageRef.current = { id: newId, content: chunk };
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: newId,
-              role: 'assistant',
-              content: chunk,
-              timestamp: Date.now(),
-              streaming: true,
-            },
-          ]);
+          setMessages((prev) => {
+            console.log('[useChat] Adding message, prev count:', prev.length);
+            return [
+              ...prev,
+              {
+                id: newId,
+                role: 'assistant',
+                content: chunk,
+                timestamp: Date.now(),
+                streaming: true,
+              },
+            ];
+          });
         } else {
           // Append to existing message
           streamingMessageRef.current.content += chunk;
@@ -55,6 +61,29 @@ export function useChat() {
 
     return unsubscribe;
   }, []);
+
+  // Poll for missed responses every few seconds while generating
+  useEffect(() => {
+    if (!isGenerating) return;
+
+    const pollInterval = setInterval(async () => {
+      console.log('[useChat] Polling for response...');
+      try {
+        const history = await chat.getHistory(undefined, 5);
+        // Check if we got a new assistant message
+        const lastAssistant = history.filter(m => m.role === 'assistant').pop();
+        if (lastAssistant && !messages.find(m => m.content === lastAssistant.content)) {
+          console.log('[useChat] Found new response via polling:', lastAssistant.content.slice(0, 50));
+          setMessages(prev => [...prev, lastAssistant]);
+          setIsGenerating(false);
+        }
+      } catch (e) {
+        console.error('[useChat] Poll failed:', e);
+      }
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [isGenerating, messages]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
