@@ -98,28 +98,27 @@ export class ChatService {
     }
   }
 
-  async sendMessage(content: string, sessionId?: string): Promise<string> {
+  async sendMessage(content: string, sessionKey?: string): Promise<string> {
     if (!gateway.isConnected()) {
       throw new Error('Not connected to gateway');
     }
 
-    const requestId = uuidv4();
-    this.currentRequestId = requestId;
-    this.currentSessionId = sessionId || this.currentSessionId || 'default';
+    const idempotencyKey = uuidv4();
+    this.currentRequestId = idempotencyKey;
+    this.currentSessionId = sessionKey || this.currentSessionId || 'agent:main:main';
 
     try {
       const response = await gateway.request('chat.send', {
         message: content,
-        sessionId: this.currentSessionId,
-        requestId,
-        stream: true,
+        sessionKey: this.currentSessionId,
+        idempotencyKey,
       });
 
       if (!response.ok) {
         throw new Error(response.error?.message || 'Failed to send message');
       }
 
-      return requestId;
+      return idempotencyKey;
     } catch (e) {
       this.currentRequestId = null;
       throw e;
@@ -139,13 +138,13 @@ export class ChatService {
     this.currentRequestId = null;
   }
 
-  async getHistory(sessionId?: string, limit = 50): Promise<ChatMessage[]> {
+  async getHistory(sessionKey?: string, limit = 50): Promise<ChatMessage[]> {
     if (!gateway.isConnected()) {
       throw new Error('Not connected to gateway');
     }
 
     const response = await gateway.request('chat.history', {
-      sessionId: sessionId || this.currentSessionId || 'default',
+      sessionKey: sessionKey || this.currentSessionId || 'agent:main:main',
       limit,
     });
 
